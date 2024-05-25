@@ -1,3 +1,4 @@
+import typing
 import requests
 import random
 import gzip
@@ -12,7 +13,7 @@ def load_data():
     ]
     user_agent = None
 
-    for i in range(1, 4):
+    for _ in range(1, 4):
         user_agent = random.choice(user_agent_list)
 
     headers = {
@@ -21,7 +22,8 @@ def load_data():
 
     # Requesting the tournaments.
     req = requests.get(
-        "https://www.sofascore.com/sitemaps/hi_sitemap_tournaments_football.xml.gz", headers=headers)
+        "https://www.sofascore.com/sitemaps/hi_sitemap_tournaments_football.xml.gz",
+        headers=headers)
 
     sitemap = gzip.decompress(req.content)
 
@@ -29,7 +31,7 @@ def load_data():
 
     tournament_list = soup.findAll('xhtml:link')
 
-    tournaments = list()
+    tournaments: typing.List[typing.Dict[str, str]] = list()
 
     for tournament in tournament_list:
         tmp_data = {}
@@ -47,4 +49,8 @@ def load_data():
         tmp_data['tournament_category'] = t[-3]
         tournaments.append(tmp_data)
 
-    return tournaments
+    print(tournaments)
+
+
+if __name__ == "__main__":
+    load_data()
