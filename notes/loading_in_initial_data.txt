@@ -1,0 +1,20 @@
+# The initial data. 
+
+The initial data will consist of:
+1. Continents and Countries (This will be covered in the fixtures).
+2. Leagues and Its Seasons.
+3. Teams.
+4. Players.
+
+
+# First time load.
+
+When user starts the project first time,
+show `load data` button at the home page if data doesn't exist.
+
+- It will fetch the data on the database in the background.
+- Fetching Task will be handled by celery.
+- There will be loaders to indicate the progess of the data loading.
+- The Continents and Countries will be loaded in from the fixtures.
+- A Json file will be saved in the `stats/initial_data` folder so the user \
+  doesn't have to refetch from the internet again and again.

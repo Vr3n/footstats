@@ -1,0 +1,12 @@
+# Loading the tournament.
+
+1. We get the tournament by its unique-tournament id.
+2. Fetching the tournament details from the api.
+3. Fetching the tournament seasons from the api.
+
+
+# Process.
+
+1. Loading in the tournaments from the downloaded sitemap.
+2. Querying the tournament detail api by the unique-tournament id.
+3. Querying the tournament seasons api by the unique-tournament id.

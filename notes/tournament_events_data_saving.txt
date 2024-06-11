@@ -1,0 +1,38 @@
+When Saving the tournament events the shape of data will be as follows.
+
+{
+    sofascore_id,
+    slug,
+    start_timestamp,
+    tournament: {
+        name,
+        slug,
+        id
+    },
+    home_team: {
+        name,
+        slug,
+        name_code,
+        sofascore_id,
+    },
+    away_team: {
+        name,
+        slug,
+        name_code,
+        sofascore_id
+    },
+    home_score: {
+        current,
+        period,
+        normal_time,
+    },
+    away_score: {
+        current,
+        period,
+        normal_time,
+    },
+    status: {
+        description,
+        type,
+    }
+}

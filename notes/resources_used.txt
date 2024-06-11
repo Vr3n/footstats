@@ -1,0 +1,10 @@
+# Python AsyincIO and Scraping.
+
+1. https://www.youtube.com/watch?v=nFn4_nA_yk8 (Python AsyncIo | Make Faster API Calls.)
+2. https://www.youtube.com/watch?v=zZSAQxdJFcQ (Rate Limiting with Async)
+3. https://www.twilio.com/en-us/blog/working-with-files-asynchronously-in-python-using-aiofiles-and-asyncio (Loading Files).
+
+
+# Misc.
+
+1. https://stackoverflow.com/questions/82831/how-do-i-check-whether-a-file-exists-without-exceptions (Check if file exists.)
