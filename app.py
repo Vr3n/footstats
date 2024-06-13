@@ -11,6 +11,7 @@ app: FastAPI = FastAPI(lifespan=db_lifespan)
 async def home():
     return {
         "message": "Hello, Friend!",
+        "database": app.database.name,
     }
 
 
