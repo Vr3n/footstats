@@ -1,0 +1,27 @@
+# Create a scraper class.
+
+## We'll Create different scrapers for different apis:
+	- TournamentScraper (Everything related to a tournament).
+		- Tournament Details.
+		- Tournament Seasons.
+		- Tournament Events.
+
+	- MatchScraper (Scraping the Tournament Events according to their start_Time).
+		- MatchStats of the Players.
+		- MatchStats of the Team.
+		- Scores of Home and Away.
+		- Heatmaps.
+		- Shotmaps.
+		- If available
+			- Passmaps.
+
+	- PlayerScraper (Details About the Players)
+		- Player Bio.
+		- Player stats.
+		- PlayerMatchStats.
+		- Player Value.
+
+	- TeamScraper (Details of the teams after the match.)
+		- Team Players
+		- Team Info
+		- Team Stats

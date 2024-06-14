@@ -4,24 +4,22 @@ from typing import Optional
 from beanie import Document, Link
 
 
-class Category(Document):
-    sofascore_id: int
+class Category(BaseModel):
+    sofascore_id: Optional[int]
     name: str
     slug: Optional[str]
-
-    class Settings:
-        name = "categories"
 
 
 class Tournament(Document):
     sofascore_id: int
-    category: Optional[Link[Category]]
+    category: Optional[Category]
     name: str
     slug: Optional[str]
     has_standings_groups: bool = False
     has_groups: bool = False
     has_rounds: bool = False
     has_playoff_series: bool = False
+    sofascore_link: Optional[str] = ''
 
     start_timestamp: Optional[datetime]
     end_timestamp: Optional[datetime]
@@ -34,7 +32,7 @@ class TournamentSeason(Document):
     sofascore_id: int
     tournament: Link[Tournament]
     name: str
-    year: date
+    year: str
 
     class Settings:
         name = "tournamentseasons"
@@ -83,7 +81,6 @@ class TournamentEvent(Document):
 
 
 BEANIE_MODELS = [
-    Category,
     Tournament,
     TournamentSeason,
     TournamentGroup,

@@ -1,5 +1,6 @@
 import time
 from celery import Celery
+from scraping.scrape_euro_league import extract_and_store_tournament_seasons_and_groups
 from settings import settings
 
 

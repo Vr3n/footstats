@@ -3,6 +3,7 @@
 1. https://www.youtube.com/watch?v=nFn4_nA_yk8 (Python AsyncIo | Make Faster API Calls.)
 2. https://www.youtube.com/watch?v=zZSAQxdJFcQ (Rate Limiting with Async)
 3. https://www.twilio.com/en-us/blog/working-with-files-asynchronously-in-python-using-aiofiles-and-asyncio (Loading Files).
+4. https://medium.com/@saverio3107/understanding-asyncio-coroutines-and-celery-fastapi-your-data-episode-7-ec2d513ba60b (Difference between Asyncio coroutines and Celery.)
 
 
 # Misc.
