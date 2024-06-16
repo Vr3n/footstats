@@ -1,19 +1,17 @@
 import asyncio
-from typing import List
-import aiohttp
-import json
-import random
-import typing
-
+from typing import Any, Dict, List
 from datetime import datetime
 
-from beanie import Link, WriteRules
+from beanie import WriteRules
+from httpx import AsyncClient, Response
+import httpx
+from logger import logger
 
-from crud.tournament import create_tournament, get_tournament
-from models.documents import TournamentSeason
+from crud.tournament import create_tournament, get_or_create_team, get_or_create_tournament_events, get_or_create_tournament_groups, get_or_create_tournament_seasons
+from models.documents import TeamScores, Tournament, TournamentEvent, TournamentGroup, TournamentSeason
 
 
-links = {
+temp_links = {
     'tournament': 'https://www.sofascore.com/api/v1/unique-tournament/1',
     'tournament_seasons': 'https://www.sofascore.com/api/v1/unique-tournament/1/seasons',
     'tournament_groups': 'https://www.sofascore.com/api/v1/unique-tournament/1/season/56953/groups',
@@ -21,85 +19,240 @@ links = {
 }
 
 
-async def make_request(url: str):
-    user_agent_list = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15',
-    ]
-    user_agent = None
-
-    for _ in range(1, 4):
-        user_agent = random.choice(user_agent_list)
-
-    headers = {
-        'User-Agent': user_agent
-    }
-
-    async with aiohttp.ClientSession() as session:
-        response = await session.get(url, ssl=False, headers=headers)
-
-        return response
+# SofaScore API endpoints
+links = {
+    'tournament': 'https://www.sofascore.com/api/v1/unique-tournament/{tournament_id}',
+    'tournament_seasons': 'https://www.sofascore.com/api/v1/unique-tournament/{tournament_id}/seasons',
+    'tournament_groups': 'https://www.sofascore.com/api/v1/unique-tournament/{tournament_id}/season/{season_id}/groups',
+    'tournament_events': 'https://www.sofascore.com/api/v1/tournament/{tournament_id}/season/{season_id}/events'
+}
 
 
-async def extract_and_store_tournament_details():
-    req = await make_request(links['tournament'])
+class Euro2024Scraper:
 
-    if req.status == 200:
-        print("Request Sent Successfully!")
+    def __init__(self, tournament_id: int) -> None:
+        self.tournament_id = tournament_id
 
-    data = await req.json()
+    async def fetch_data(self, client_url: str) -> Response:
+        async with AsyncClient() as client:
+            try:
+                res = await client.get(client_url)
+                res.raise_for_status()
+                return res
+            except httpx.HTTPError as exc:
+                logger.error(f"HTTP exception for {exc.request.url} - {exc}")
 
-    print(data)
+    def get_json_data(self, res: Response) -> Dict[str, Any]:
+        data = res.json()
 
-    data = data['uniqueTournament']
+        if data is None:
+            logger.error("No data returned")
+            raise Exception("No data returned")
 
-    print("Extracted the data.")
+        return data
 
-    tournament_data = {
-        'name': data['name'],
-        'slug': data['slug'],
-        'sofascore_id': data['id'],
-        'category': {
-            'name': data['category']['name'],
-            'slug': data['category']['slug'],
-            'sofascore_id': data['category']['id'],
-        },
-        'hasStandingsGroups': data['hasStandingsGroups'],
-        'hasGroups': data['hasGroups'],
-        'hasPlayoffSeries': data['hasPlayoffSeries'],
-        'tournament_start_timestamp': datetime.fromtimestamp(data['startDateTimestamp']),
-        'tournament_end_timestamp': datetime.fromtimestamp(data['endDateTimestamp']),
-    }
+    async def scrape_tournament_details(self,
+                                        tournament_id: int) -> Tournament:
+        url = links['tournament'].format(tournament_id=tournament_id)
 
-    print(tournament_data, "\n")
+        res = await self.fetch_data(url)
 
-    tournament = await create_tournament(tournament_data)
+        try:
+            data = self.get_json_data(res)
+            logger.info("Received data")
 
-    return tournament
+            data = data['uniqueTournament']
 
+            tournament_data = {
+                'name': data['name'],
+                'slug': data['slug'],
+                'sofascore_id': data['id'],
+                'category': {
+                    'name': data['category']['name'],
+                    'slug': data['category']['slug'],
+                    'sofascore_id': data['category']['id'],
+                },
+                'has_standings_groups': data['hasStandingsGroups'],
+                'has_groups': data['hasGroups'],
+                'has_playoff_series': data['hasPlayoffSeries'],
+                'has_rounds': data['hasRounds'],
+                'start_timestamp': datetime.fromtimestamp(
+                    data['startDateTimestamp']),
+                'end_timestamp': datetime.fromtimestamp(
+                    data['endDateTimestamp']),
+            }
 
-async def extract_and_store_tournament_seasons():
-    req = await make_request(links['tournament_seasons'])
+            tournament = await create_tournament(tournament_data)
 
-    if req.status == 200:
-        print("Request Sent Successfully!")
+            logger.info("Completed Scraping the tournament.")
 
-    seasons_data = await req.json()
-    seasons_data = seasons_data['seasons']
+            return tournament
+        except Exception as exc:
+            logger.error(exc)
 
-    tournament = await get_tournament(sofascore_id=1)
+    async def scrape_tournament_seasons(
+            self, tournament: Tournament) -> List[TournamentSeason]:
+        url = links['tournament_seasons'].format(
+            tournament_id=tournament.sofascore_id)
 
-    seasons: List[TournamentSeason] = list()
-    for season in seasons_data:
-        s = TournamentSeason(
-            name=season['name'],
-            year=season['year'],
-            sofascore_id=season['id'],
+        res = await self.fetch_data(url)
+
+        try:
+            data = self.get_json_data(res)
+            logger.info("Received data")
+
+            seasons_data = data['seasons']
+            logger.info(seasons_data)
+
+            seasons: List[TournamentSeason] = list()
+            for season in seasons_data:
+                tmp_data = {
+                    "name": season['name'],
+                    "year": season['year'],
+                    "sofascore_id": season['id'],
+                    "tournament": tournament
+                }
+
+                s = await get_or_create_tournament_seasons(tmp_data)
+                seasons.append(s)
+
+            return seasons
+        except Exception as exc:
+            logger.error(exc)
+
+    async def scrape_tournament_groups(self,
+                                       tournament: Tournament,
+                                       season: TournamentSeason,
+                                       ) -> List[TournamentGroup]:
+        url = links['tournament_groups'].format(
+            tournament_id=tournament.sofascore_id,
+            season_id=season.sofascore_id
+        )
+
+        res = await self.fetch_data(url)
+
+        try:
+            data = self.get_json_data(res)
+            logger.info(f"received group: {data}")
+            groups = []
+
+            group_list = [
+                {"sofascore_id": d['tournamentId'],
+                 "name": d['groupName'],
+                 "season": season,
+                 "tournament": tournament
+                 } for d in data['groups']
+            ]
+
+            for group in group_list:
+                g = await get_or_create_tournament_groups(group)
+                groups.append(g)
+
+            asyncio.sleep(5)
+
+            return groups
+        except TypeError:
+            logger.error("Type error")
+        except Exception as exc:
+            logger.error(exc)
+
+    async def scrape_tournament_events(self,
+                                       tournament: Tournament,
+                                       group: TournamentGroup,
+                                       ) -> List[TournamentEvent]:
+        await group.fetch_link(TournamentGroup.season)
+
+        url = links['tournament_events'].format(
+            tournament_id=group.sofascore_id,
+            season_id=group.season.sofascore_id)
+
+        res = await self.fetch_data(url)
+
+        try:
+            data = self.get_json_data(res)
+
+            tournament_events = data['events']
+
+            # logger.info(f"Received event data: {tournament_events}")
+
+            tournament_matches = []
+
+            for match in tournament_events:
+
+                home_team = await get_or_create_team({
+                    'sofascore_id': match['homeTeam']['id'],
+                    'slug': match['homeTeam']['slug'],
+                    'name_code': match['homeTeam']['nameCode'],
+                    'ranking': match['homeTeam']['ranking'],
+                    'name': match['homeTeam']['name']
+                })
+                away_team = await get_or_create_team({
+                    'sofascore_id': match['awayTeam']['id'],
+                    'slug': match['awayTeam']['slug'],
+                    'name_code': match['awayTeam']['nameCode'],
+                    'ranking': match['awayTeam']['ranking'],
+                    'name': match['awayTeam']['name']
+                })
+
+                match_data = {
+                    "sofascore_id": match['id'],
+                    "stage": group,
+                    "tournament": tournament,
+                    "home_team": home_team,
+                    "away_team": away_team,
+                    "home_score": TeamScores(**match['homeScore']),
+                    "away_score": TeamScores(**match['awayScore']),
+                    "has_xg": match['hasXg'],
+                    "has_eventplayer_statistics": match[
+                        'hasEventPlayerStatistics'],
+                    "has_eventplayer_heatmap": match[
+                        'hasEventPlayerHeatMap'],
+                    "slug": match['slug'],
+                    "detail_id": match['detailId']
+                }
+
+                tournament_event = await get_or_create_tournament_events(
+                    match_data
+                )
+
+                tournament_matches.append(tournament_event)
+
+                asyncio.sleep(5)
+
+            return tournament_matches
+        except TypeError as type_err:
+            logger.error("Type error", type_err)
+        except Exception as exc:
+            logger.error(exc)
+
+    async def run_scraper(self):
+        tournament = await self.scrape_tournament_details(
+            tournament_id=self.tournament_id)
+
+        asyncio.sleep(5)
+
+        seasons = await self.scrape_tournament_seasons(
             tournament=tournament
         )
-        seasons.append(s)
 
-    TournamentSeason.insert_many(seasons, link_rule=WriteRules.WRITE)
+        groups_scrape_tasks: List[TournamentGroup] = []
+        for season in seasons:
+            groups_scrape_tasks.append(
+                self.scrape_tournament_groups(tournament=tournament,
+                                              season=season)
+            )
+        await asyncio.gather(*groups_scrape_tasks)
 
-    return seasons
+        events_scrape_tasks = list()
+        groups = await TournamentGroup.find_all().to_list()
+        for group in groups:
+            events_scrape_tasks.append(
+                self.scrape_tournament_events(
+                    tournament=tournament,
+                    group=group
+                )
+            )
+        await asyncio.gather(*events_scrape_tasks)
+
+
+euro_scraper = Euro2024Scraper(tournament_id=1)

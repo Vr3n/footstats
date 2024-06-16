@@ -5,11 +5,10 @@ from fastapi.responses import JSONResponse
 
 from crud.tournament import create_tournament
 from models.documents import Tournament, TournamentSeason
-from scraping.scrape_euro_league import (
-    extract_and_store_tournament_details, extract_and_store_tournament_seasons)
 from settings import settings
 from database import db_lifespan
-from tasks import create_task
+from logger import logger
+from scraping.scrape_euro_league import euro_scraper
 
 
 sentry_sdk.init(
@@ -28,24 +27,6 @@ async def home():
     }
 
 
-@app.post("/task")
-def run_task(amount: Annotated[int, Form()], x: Annotated[int, Form()],
-             y: Annotated[int, Form()]):
-    amount = int(amount)
-    x = int(x)
-    y = int(y)
-    task = create_task.delay(amount, x, y)
-
-    return JSONResponse({"task": task.get()})
-
-
-@app.get("/fetch-tournament-seasons")
-async def fetch_tournaments_seasons() -> List[TournamentSeason]:
-    seasons = await extract_and_store_tournament_seasons()
-
-    return seasons
-
-
 @app.get("/tournaments")
 async def all_tournaments() -> List[Tournament] | Dict:
     tournaments = await Tournament.all().to_list()
@@ -55,7 +36,7 @@ async def all_tournaments() -> List[Tournament] | Dict:
             "message": "No Tournaments added!"
         }
 
-    return JSONResponse(tournaments)
+    return tournaments
 
 
 @app.post("/tournaments")
@@ -64,8 +45,10 @@ async def add_tournament(tournament: Tournament) -> Tournament:
     return tournament
 
 
-@app.get("/fetch-euro-league")
-async def fetch_euro_league() -> Tournament:
-    tournament = await extract_and_store_tournament_details()
+@app.get("/scrape-euro-league")
+async def fetch_euro_league():
+    await euro_scraper.run_scraper()
 
-    return tournament
+    return {
+        "message": "Scraping Completed Successfully!"
+    }

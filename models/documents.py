@@ -1,7 +1,7 @@
-from datetime import date, datetime
+from datetime import datetime
 from pydantic import BaseModel
-from typing import Optional
-from beanie import Document, Link
+from typing import Annotated, Optional
+from beanie import Document, Indexed, Link, PydanticObjectId
 
 
 class Category(BaseModel):
@@ -11,6 +11,7 @@ class Category(BaseModel):
 
 
 class Tournament(Document):
+    _id: PydanticObjectId
     sofascore_id: int
     category: Optional[Category]
     name: str
@@ -29,6 +30,7 @@ class Tournament(Document):
 
 
 class TournamentSeason(Document):
+    _id: PydanticObjectId
     sofascore_id: int
     tournament: Link[Tournament]
     name: str
@@ -39,8 +41,10 @@ class TournamentSeason(Document):
 
 
 class TournamentGroup(Document):
+    _id: PydanticObjectId
     sofascore_id: int
-    tournament_season: Link[TournamentSeason]
+    season: Link[TournamentSeason]
+    tournament: Link[Tournament]
     name: str
 
     class Settings:
@@ -48,10 +52,12 @@ class TournamentGroup(Document):
 
 
 class Team(Document):
+    _id: PydanticObjectId
     sofascore_id: int
     name: str
     name_code: str
-    country: Optional[str]
+    country: Optional[str] = None
+    ranking: Optional[int] = None
     slug: str
 
     class Settings:
@@ -59,22 +65,27 @@ class Team(Document):
 
 
 class TeamScores(BaseModel):
-    period1: int = 0
-    period2: int = 0
-    normalTime: int = 0
-    extraTime: int = 0
-    penalties: int = 0
+    period1: int | None = None
+    period2: int | None = None
+    normaltime: int | None = None
+    extratime: int | None = None
+    penalties: int | None = None
 
 
 class TournamentEvent(Document):
+    _id: PydanticObjectId
     sofascore_id: int
     stage: Optional[Link[TournamentGroup]]
+    slug: Optional[str]
     tournament: Link[Tournament]
-    tournament_season: Optional[Link[TournamentSeason]]
     home_team: Link[Team]
     away_team: Link[Team]
     home_score: TeamScores
     away_score: TeamScores
+    has_xg: bool = False
+    has_eventplayer_statistics: bool = False
+    has_eventplayer_heatmap: bool = False
+    detail_id: Optional[int]
 
     class Settings:
         name = "tournamentevents"

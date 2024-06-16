@@ -1,14 +1,24 @@
-import time
-from celery import Celery
-from scraping.scrape_euro_league import extract_and_store_tournament_seasons_and_groups
+import asyncio
+from httpx import AsyncClient
+from arq import create_pool
+from arq.connections import RedisSettings
 from settings import settings
 
 
-celery_app = Celery(__name__, broker=settings.CELERY_BROKER_URL,
-                    backend=settings.CELERY_RESULT_BACKEND)
+REDIS_SETTINGS = RedisSettings(
+    host="redis",
+    port=6379,
+    database=settings.CELERY_RESULT_BACKEND
+)
 
 
-@celery_app.task
-def create_task(a, b, c):
-    time.sleep(a)
-    return b + c
+async def startup(ctx):
+    ctx['session'] = AsyncClient()
+
+
+async def shutdown(ctx):
+    await ctx['session'].aclose()
+
+
+async def main():
+    redis = await create_pool(REDIS_SETTINGS)

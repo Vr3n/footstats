@@ -1,7 +1,9 @@
-from typing import Dict
+from typing import Dict, Optional
+from beanie import WriteRules
 from beanie.operators import Or
+from logger import logger
 
-from models.documents import Tournament, TournamentSeason
+from models.documents import Team, Tournament, TournamentEvent, TournamentGroup, TournamentSeason
 
 
 async def get_tournament(sofascore_id: int, name: str = '') -> Tournament:
@@ -13,40 +15,101 @@ async def get_tournament(sofascore_id: int, name: str = '') -> Tournament:
     return tournament
 
 
+async def get_tournament_season(sofascore_id: int,
+                                year: str = '') -> TournamentSeason:
+    tournament = await TournamentSeason.find_one(
+        Or(TournamentSeason.sofascore_id == sofascore_id,
+           TournamentSeason.year == year)
+    )
+    if not tournament:
+        raise Exception("Tournament Season Does not Exist.")
+    return tournament
+
+
+async def get_or_create_team(data: Dict) -> Team:
+    logger.info(f"Received Team: {data}")
+    team = await Team.find_one(
+        Team.sofascore_id == data['sofascore_id'],
+    )
+
+    if not team:
+        logger.info(f"Creating Team: {data['name']}")
+        team = Team(**data)
+        await team.insert()
+        logger.info(f"Successfully Created team: {team.name}")
+    else:
+        logger.info(f"Team already exists: {team.name}")
+
+    return team
+
+
 async def create_tournament(data: Dict) -> Tournament:
     # Check if tournament already exists.
-    print("got the data: ", data)
+    logger.info(f"Received data: {data}")
+
     tournament = await Tournament.find_one(
         {'sofascore_id': data['sofascore_id']}
     )
 
     if not tournament:
-        tournament = Tournament(
-            name=data['name'],
-            slug=data['slug'],
-            sofascore_id=data['sofascore_id'],
-            has_standings_groups=data['hasStandingsGroups'],
-            has_groups=data['hasGroups'],
-            has_playoff_series=data['hasPlayoffSeries'],
-            start_timestamp=data['tournament_start_timestamp'],
-            end_timestamp=data['tournament_end_timestamp'],
-            category=data['category']
-        )
+        logger.info(f"Creating Tournament {data['name']}")
+        tournament = Tournament(**data)
         await tournament.insert()
+        logger.info(f"Sucessfully created tournament: {data['name']}")
     return tournament
 
 
 async def get_or_create_tournament_seasons(data: Dict,
-                                           tournament: Tournament) -> TournamentSeason:
-    season = TournamentSeason.find_one(sofascore_id=data['sofascore_id'])
+                                           ) -> TournamentSeason:
+
+    logger.info(f"Received data: {data}")
+    season = await TournamentSeason.find_one(
+        TournamentSeason.sofascore_id == data['sofascore_id']
+    )
 
     if not season:
-        season = TournamentSeason(
-            sofascore_id=data['sofascore_id'],
-            name=data['name'],
-            year=data['year'],
-            tournament=Tournament(tournament)
-        )
+        logger.info(f"Creating Season {data}")
+        season = TournamentSeason(**data)
         await season.insert()
 
     return season
+
+
+async def get_or_create_tournament_groups(
+    data: Dict,
+) -> TournamentSeason:
+    logger.info(f"Received Groups data: {data}")
+
+    group = await TournamentGroup.find_one(
+        TournamentGroup.sofascore_id == data['sofascore_id']
+    )
+
+    if not group:
+        logger.info(f"Creating group {data['name']}")
+        group = TournamentGroup(**data)
+        await group.insert()
+        logger.info(f"Inserted group {group.name} sucessfuly")
+    else:
+        logger.info(f"Group already exists: {group}")
+
+    return group
+
+
+async def get_or_create_tournament_events(
+    data: Dict,
+) -> TournamentEvent:
+
+    logger.info(f"Received event data: {data}")
+    event = await Tournament.find_one(
+        TournamentEvent.sofascore_id == data['sofascore_id'])
+
+    if not event:
+        logger.info(f"Creating Event: {data}")
+        event = TournamentEvent(
+            **data
+        )
+        await event.insert()
+        logger.info(f"Inserted event {event} sucessfuly")
+    else:
+        logger.info(f"event already exists: {event}")
+    return event
