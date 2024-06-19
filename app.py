@@ -1,7 +1,7 @@
 import sentry_sdk
 from typing import Annotated, Dict, List
-from fastapi import FastAPI, Form
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Form, Request
+from fastapi.staticfiles import StaticFiles
 
 from crud.tournament import create_tournament
 from models.documents import Tournament, TournamentSeason
@@ -9,6 +9,7 @@ from settings import settings
 from database import db_lifespan
 from logger import logger
 from scraping.scrape_euro_league import euro_scraper
+from main import templates
 
 
 sentry_sdk.init(
@@ -19,12 +20,15 @@ sentry_sdk.init(
 
 app: FastAPI = FastAPI(lifespan=db_lifespan)
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 @app.get("/", tags=['home'])
-async def home():
-    return {
-        "message": "Hello, Friend!",
-    }
+async def home(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+    )
 
 
 @app.get("/tournaments")

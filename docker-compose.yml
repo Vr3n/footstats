@@ -2,6 +2,7 @@ version: "3.8"
 
 services:
   mongodb:
+    container_name: footstats_mongo
     image: mongo:latest
     env_file: .env
     ports:
@@ -28,8 +29,23 @@ services:
     depends_on:
       - mongodb
 
+  tailwind:
+    container_name: footstats_dev_tailwind
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+    command: "npm run tailwind_dev"
+    tty: true
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - app
+
   redis:
-    container_name: redis
+    container_name: footstats_redis
     image: redis:alpine
     ports:
       - 6379:6379
@@ -37,3 +53,4 @@ services:
 
 volumes:
   mongo_data:
+  node_modules:
