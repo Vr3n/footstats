@@ -1,56 +1,95 @@
-version: "3.8"
+x-postgres-base: &postgres-base
+  image: postgis/postgis:15-3.3-alpine
+  restart: always
+  healthcheck:
+    test:
+      - CMD-SHELL
+      - pg_isready -U postgres
+    interval: 10s
+    timeout: 5s
+    retries: 5
+
+x-app-base: &app-base
+  restart: always
 
 services:
-  mongodb:
-    container_name: footstats_mongo
-    image: mongo:latest
-    env_file: .env
-    ports:
-      - 27017:27017
+  postgres-test:
+    profiles: ["test"]
+    <<: *postgres-base
+    env_file: ".env.local"
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
-      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE}
-    volumes:
-      - mongo_data:/data/db
-      - ./db/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js
-    command: [--auth]
+      - POSTGRES_HOST=postgres-test
+      - GUNICORN_WORKERS=1
+    networks:
+      - test
 
-  app:
-    container_name: footstats_app
-    build: .
-    command: "python3 main.py"
-    volumes:
-      - .:/app
-    ports:
-      - 8000:8000
-    restart: always
-    env_file: .env
-    depends_on:
-      - mongodb
-
-  tailwind:
-    container_name: footstats_dev_tailwind
+  app-test:
+    profiles: ["test"]
+    <<: *app-base
+    entrypoint: ./scripts/entrypoint-test.sh
     build:
       context: .
-      dockerfile: Dockerfile.node
-    command: "npm run tailwind_dev"
-    tty: true
-    volumes:
-      - .:/app
-      - node_modules:/app/node_modules
+      dockerfile: ./app/Dockerfile
+      args:
+        ENV: test
+    env_file: ".env.local"
     environment:
-      - NODE_ENV=development
+      - POSTGRES_DRIVERNAME=postgresql+asyncpg
+      - POSTGRES_HOST=postgres-test
+      - GUNICORN_WORKERS=1
+    volumes:
+      - ./:/code
     depends_on:
-      - app
+      postgres-test:
+        condition: service_healthy
+    networks:
+      - test
 
-  redis:
-    container_name: footstats_redis
-    image: redis:alpine
+  postgres-dev:
+    profiles: ["dev"]
+    <<: *postgres-base
+    env_file: ".env.local"
+    environment:
+      - POSTGRES_HOST=postgres-dev
+      - GUNICORN_WORKERS=4
     ports:
-      - 6379:6379
+      - 5432:5432
+    expose:
+      - 5432
+    volumes:
+      - ./postgres/docker-entrypoint-initdb.d/:/docker-entrypoint-initdb.d/
+      - pgdata-dev:/var/lib/postgresql/data
+    networks:
+      - dev
 
+  app-dev:
+    profiles: ["dev"]
+    <<: *app-base
+    build:
+      context: .
+      dockerfile: ./app/Dockerfile
+    command:
+      bash -c "
+        gunicorn app.api.server:app --config ./app/api/gunicorn_config.py"
+    env_file: ".env.local"
+    environment:
+      - POSTGRES_HOST=postgres-dev
+      - GUNICORN_WORKERS=4
+    volumes:
+      - ./app:/app
+    ports:
+      - 8000:8000
+    expose:
+      - 8000
+    depends_on:
+      postgres-dev:
+        condition: service_healthy
+    networks:
+      - dev
 
 volumes:
-  mongo_data:
-  node_modules:
+  pgdata-dev:
+
+networks:
+  test:
+  dev:
