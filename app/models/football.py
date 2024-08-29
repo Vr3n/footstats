@@ -24,8 +24,6 @@ class Category(Base, CategoryBase, table=True):
 
 class TournamentBase(SQLModel):
     sofascore_id: int | None = Field(default=None, primary_key=True)
-    category_id: int | None = Field(default=None,
-                                    foreign_key="category.sofascore_id",)
     name: str
     slug: Optional[str] = None
     has_standings_groups: bool = False
@@ -36,11 +34,14 @@ class TournamentBase(SQLModel):
     start_timestamp: Optional[datetime] = None
     end_timestamp: Optional[datetime] = None
 
+    category_id: int | None = Field(default=None,
+                                    foreign_key="category.sofascore_id",)
+
 
 class Tournament(Base, TournamentBase, table=True):
     __tablename__ = "tournament"
 
-    category: Category = Relationship(back_populates="tournaments")
+    category: Category | None = Relationship(back_populates="tournaments")
 
     seasons: List["TournamentSeason"] = Relationship(
         back_populates="tournament")
@@ -48,6 +49,10 @@ class Tournament(Base, TournamentBase, table=True):
     events: List["TournamentEvent"] | None = Relationship(
         back_populates="tournament"
     )
+
+
+class TournamentWithCategoryPublic(TournamentBase):
+    category: CategoryBase | None = None
 
 
 class TournamentSeasonBase(SQLModel):

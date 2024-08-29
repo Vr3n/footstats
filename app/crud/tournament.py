@@ -1,18 +1,18 @@
-from typing import Any, Dict, Optional
+from typing import List
 
-from sqlmodel import select
+from sqlalchemy.ext.asyncio.result import Sequence
+from sqlmodel import desc, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.logger import logger
 
 from app.models.football import (
-    Category, CategoryBase, Tournament, TournamentBase)
-from app.db.session import engine
-from app.models.football import (
+    Category, CategoryBase, Tournament, TournamentBase,
     TournamentEvent,
     TournamentEventBase,
     TournamentSeason,
     TournamentSeasonBase,
 )
+from app.db.session import engine
 
 
 async def get_or_create_category(category_data: CategoryBase) -> Category:
@@ -34,6 +34,12 @@ async def get_or_create_category(category_data: CategoryBase) -> Category:
             logger.info(f"Found Category {category}")
 
     return category
+
+
+async def get_all_tournaments(
+        db: AsyncSession) -> Sequence[Tournament]:
+
+    return tournaments
 
 
 async def get_or_create_tournament(

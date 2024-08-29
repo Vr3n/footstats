@@ -42,7 +42,7 @@ async def session(engine):
         class_=AsyncSession,
         expire_on_commit=False,
         autocommit=False,
-        autoflust=False,
+        autoflush=False,
     )
 
     async with engine.connect() as conn:
