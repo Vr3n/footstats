@@ -1,119 +1,167 @@
 from datetime import datetime
 from typing import List, Optional
+from sqlalchemy.orm import RelationshipProperty
 from sqlmodel import Field, SQLModel, Relationship
 
-from models.base import TimestampMixin
+from app.models.base import TimestampMixin, IdMixin
 
 
-class Base(SQLModel, TimestampMixin):
+class Base(IdMixin, TimestampMixin):
+    pass
+
+
+class CategoryBase(SQLModel):
     sofascore_id: int | None = Field(default=None, primary_key=True)
-
-
-class Category(Base, table=True):
-    __tablename__ = "category"
-
-    sofascore_id: int = Field(default=None, primary_key=True)
     name: str
     slug: str | None
+
+
+class Category(Base, CategoryBase, table=True):
+    __tablename__ = "category"
+
     tournaments: List["Tournament"] = Relationship(back_populates="category")
 
 
-class Tournament(Base, table=True):
-    __tablename__ = "tournament"
-
-    category_id: int = Field(foreign_key="category.sofascore_id")
-    category: Category = Relationship(back_populates="tournaments")
+class TournamentBase(SQLModel):
+    sofascore_id: int | None = Field(default=None, primary_key=True)
+    category_id: int | None = Field(default=None,
+                                    foreign_key="category.sofascore_id",)
     name: str
-    slug: Optional[str]
+    slug: Optional[str] = None
     has_standings_groups: bool = False
     has_groups: bool = False
     has_rounds: bool = False
     has_playoff_series: bool = False
     sofascore_link: Optional[str] = ''
-    start_timestamp: Optional[datetime]
-    end_timestamp: Optional[datetime]
+    start_timestamp: Optional[datetime] = None
+    end_timestamp: Optional[datetime] = None
+
+
+class Tournament(Base, TournamentBase, table=True):
+    __tablename__ = "tournament"
+
+    category: Category = Relationship(back_populates="tournaments")
 
     seasons: List["TournamentSeason"] = Relationship(
         back_populates="tournament")
 
-    events: List["TournamentEvent"] = Relationship(
+    events: List["TournamentEvent"] | None = Relationship(
         back_populates="tournament"
     )
 
 
-class TournamentSeason(Base, table=True):
-    __tablename__ = "tournament_season"
+class TournamentSeasonBase(SQLModel):
+    sofascore_id: int | None = Field(default=None, primary_key=True)
     tournament_id: int = Field(foreign_key="tournament.sofascore_id")
-    tournament: Tournament = Relationship(back_populates="seasons")
     name: str
     year: str
+
+
+class TournamentSeason(Base, TournamentSeasonBase, table=True):
+    __tablename__ = "tournament_season"
+
+    tournament: Optional[Tournament] = Relationship(back_populates="seasons")
 
     groups: List["TournamentGroup"] = Relationship(
         back_populates="tournament_season")
 
 
-class TournamentGroup(Base, table=True):
-    __tablename__ = "tournament_group"
+class TournamentGroupBase(SQLModel):
+    sofascore_id: int | None = Field(default=None, primary_key=True)
     tournament_season_id: int = Field(
-        foreign_key="tournament_season.sofacore_id")
+        foreign_key="tournament_season.sofascore_id")
+    name: str
+
+
+class TournamentGroup(Base, TournamentGroupBase, table=True):
+    __tablename__ = "tournament_group"
+
     tournament_season: TournamentSeason = Relationship(
         back_populates="groups"
     )
-    name: str
 
     stages: Optional["TournamentEvent"] = Relationship(
         back_populates="stage"
     )
 
 
-class Team(Base, table=True):
-    __tablename__ = "team"
-
+class TeamBase(SQLModel):
+    sofascore_id: int | None = Field(default=None, primary_key=True)
     name: str
     name_code: str
     country: Optional[str] = None
     ranking: Optional[int] = None
     slug: str
 
+
+class Team(Base, TeamBase, table=True):
+    __tablename__ = "team"
+
     home_events: List["TournamentEvent"] = Relationship(
-        back_populates="home_team"
+        back_populates="home_team",
+        sa_relationship_kwargs={
+            'primaryjoin': 'TournamentEvent.home_team_id == Team.sofascore_id',
+            "lazy": 'joined',
+        }
     )
 
     away_events: List["TournamentEvent"] = Relationship(
-        back_populates="away_team"
-    )
+        back_populates="away_team",
+        sa_relationship_kwargs={
+            'primaryjoin': 'TournamentEvent.away_team_id == Team.sofascore_id',
+            "lazy": 'joined',
+        })
 
 
-class TeamScores(SQLModel):
-    period1: int | None = None
-    period2: int | None = None
-    normaltime: int | None = None
-    extratime: int | None = None
-    penalties: int | None = None
-
-
-class TournamentEvent(Base):
-    __tablename__ = "tournament_event"
-
+class TournamentEventBase(SQLModel):
+    sofascore_id: int | None = Field(default=None, primary_key=True)
     slug: Optional[str]
     detail_id: Optional[int]
 
     stage_id: Optional[int] = Field(
         default=None, foreign_key="tournament_group.sofascore_id")
-    stage: Optional[TournamentGroup] = Relationship(back_populates="stages")
 
-    tournament_id: int = Field(foreign_key="tournament_sofascore_id")
-    tournament: Tournament = Relationship(back_populates="events")
+    tournament_id: int = Field(foreign_key="tournament.sofascore_id")
 
     home_team_id: int = Field(foreign_key="team.sofascore_id")
-    home_team: Team = Relationship(back_populates="home_events")
 
     away_team_id: int = Field(foreign_key="team.sofascore_id")
-    away_team: Team = Relationship(back_populates="away_events")
 
-    home_score: TeamScores
-    away_score: TeamScores
+    home_score_period_1: int = 0
+    home_score_period_2: int = 0
+    home_score_normaltime: int = 0
+    home_score_extratime: int = 0
+    home_score_penalties: int = 0
+
+    away_score_period_1: int = 0
+    away_score_period_2: int = 0
+    away_score_normaltime: int = 0
+    away_score_extratime: int = 0
+    away_score_penalties: int = 0
 
     has_xg: bool = False
     has_eventplayer_statistics: bool = False
     has_eventplayer_heatmap: bool = False
+
+
+class TournamentEvent(Base, TournamentEventBase, table=True):
+    __tablename__ = "tournament_event"
+
+    stage: Optional[TournamentGroup] = Relationship(back_populates="stages")
+
+    tournament: Tournament = Relationship(back_populates="events")
+
+    home_team: Team = Relationship(
+        back_populates='home_events',
+        sa_relationship_kwargs={
+            'primaryjoin': 'TournamentEvent.home_team_id == Team.sofascore_id',
+            "lazy": 'joined',
+        }
+    )
+
+    away_team: Team = Relationship(
+        back_populates='away_events',
+        sa_relationship_kwargs={
+            'primaryjoin': 'TournamentEvent.away_team_id == Team.sofascore_id',
+            "lazy": 'joined',
+        })

@@ -42,3 +42,5 @@ uuid7==0.1.0
 uvicorn==0.30.6
 watchfiles==0.23.0
 websockets==12.0
+alembic==1.13.2
+asyncpg==0.29.0

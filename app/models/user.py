@@ -1,7 +1,7 @@
 from pydantic import EmailStr
 from sqlmodel import SQLModel, Field
 
-from models.base import IdMixin, TimestampMixin
+from app.models.base import IdMixin, TimestampMixin
 
 
 class UserBase(SQLModel):
