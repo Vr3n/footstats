@@ -4,7 +4,8 @@ from fastapi.exceptions import ResponseValidationError
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.logger import logger
 
-from app.models.football import (Tournament, TournamentBase,
+from app.models.football import (PublicTournamentWithSeasons,
+                                 Tournament, TournamentBase,
                                  TournamentWithCategoryPublic,)
 from app.db.session import get_session
 from app.crud.tournament import (tournament_service,)
@@ -17,13 +18,12 @@ router = APIRouter(prefix="/tournaments", tags=["tournaments"])
     "/",
     status_code=status.HTTP_200_OK,
     summary="Get all football tournaments.",
-    response_model=List[TournamentWithCategoryPublic]
+    response_model=List[PublicTournamentWithSeasons]
 )
 async def get_tournaments(*,
                           category: str | None = None,
                           session: AsyncSession = Depends(get_session),):
     try:
-        print(category)
         if category is not None and category != '':
             tournaments = await tournament_service.get_tournaments_by_category(
                 session,

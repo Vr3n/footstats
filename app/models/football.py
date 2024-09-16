@@ -19,7 +19,18 @@ class CategoryBase(SQLModel):
 class Category(Base, CategoryBase, table=True):
     __tablename__ = "category"
 
-    tournaments: List["Tournament"] = Relationship(back_populates="category")
+    tournaments: List["Tournament"] = Relationship(back_populates="category",
+                                                   sa_relationship_kwargs={
+                                                       "lazy": "selectin",
+                                                   })
+
+
+class CategoryPublic(CategoryBase):
+    pass
+
+
+class PublicCategoryWithTournament(CategoryBase):
+    tournaments: List["TournamentBase"] | None = None
 
 
 class TournamentBase(SQLModel):
@@ -47,10 +58,16 @@ class Tournament(Base, TournamentBase, table=True):
                                              })
 
     seasons: List["TournamentSeason"] = Relationship(
-        back_populates="tournament")
+        back_populates="tournament",
+        sa_relationship_kwargs={
+            "lazy": "selectin"
+        })
 
     events: List["TournamentEvent"] | None = Relationship(
-        back_populates="tournament"
+        back_populates="tournament",
+        sa_relationship_kwargs={
+            "lazy": "selectin"
+        }
     )
 
 
@@ -177,3 +194,7 @@ class TournamentEvent(Base, TournamentEventBase, table=True):
             'primaryjoin': 'TournamentEvent.away_team_id == Team.sofascore_id',
             "lazy": 'joined',
         })
+
+
+class PublicTournamentWithSeasons(TournamentWithCategoryPublic):
+    seasons: List[TournamentSeasonBase] | None = None
