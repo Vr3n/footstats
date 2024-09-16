@@ -41,7 +41,10 @@ class TournamentBase(SQLModel):
 class Tournament(Base, TournamentBase, table=True):
     __tablename__ = "tournament"
 
-    category: Category | None = Relationship(back_populates="tournaments")
+    category: Category | None = Relationship(back_populates="tournaments",
+                                             sa_relationship_kwargs={
+                                                 "lazy": "selectin",
+                                             })
 
     seasons: List["TournamentSeason"] = Relationship(
         back_populates="tournament")
@@ -69,6 +72,10 @@ class TournamentSeason(Base, TournamentSeasonBase, table=True):
 
     groups: List["TournamentGroup"] = Relationship(
         back_populates="tournament_season")
+
+
+class PublicTournamentSeasonWithTournaments(TournamentSeasonBase):
+    tournament: TournamentBase | None = None
 
 
 class TournamentGroupBase(SQLModel):
