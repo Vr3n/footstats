@@ -21,7 +21,20 @@ class CRUDRepository(Generic[T]):
     def __init__(self, model: Type[T]):
         self.model = model
 
-    async def get_by_id(self, db: AsyncSession, id: int) -> Optional[T]:
+    async def get(self, db: AsyncSession, id: int) -> Optional[T]:
+        try:
+            query = select(self.model).where(self.model.sofascore_id == id)
+            result = await db.exec(query)
+            entity = result.first()
+
+            return entity
+        except Exception as exc:
+            logger.error(f"Repository: Get Create error: {str(exc)}")
+            raise CRUDRepositoryException(
+                "AN unexpected error occured."
+            )
+
+    async def get_or_error(self, db: AsyncSession, id: int) -> Optional[T]:
         try:
             query = select(self.model).where(self.model.sofascore_id == id)
             result = await db.exec(query)

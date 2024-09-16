@@ -4,7 +4,7 @@ from fastapi import APIRouter
 
 
 router = APIRouter(prefix="/v1")
-routes = ("user", 'scraping', "tournament", )
+routes = ("user", 'scraping', "tournament", "category", )
 
 for module_name in routes:
     api_module = import_module(f"app.api.routes.v1.{module_name}")
