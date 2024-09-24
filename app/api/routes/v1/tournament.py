@@ -22,12 +22,18 @@ router = APIRouter(prefix="/tournaments", tags=["tournaments"])
 )
 async def get_tournaments(*,
                           category: str | None = None,
+                          name: str | None = None,
                           session: AsyncSession = Depends(get_session),):
     try:
         if category is not None and category != '':
             tournaments = await tournament_service.get_tournaments_by_category(
                 session,
                 category
+            )
+        elif name is not None and name != '':
+            tournaments = await tournament_service.get_tournaments_by_name(
+                session,
+                name
             )
         else:
             tournaments = await tournament_service.get_all_tournaments(session)

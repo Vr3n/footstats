@@ -2,7 +2,7 @@ from typing import List
 from fastapi import status
 from fastapi.exceptions import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
-from sqlmodel import select, or_
+from sqlmodel import col, select, or_
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.logger import logger
 
@@ -114,11 +114,17 @@ class TournamentService:
         try:
             if isinstance(category, int) or category.isdigit():
                 category = int(category)
-                query = select(Tournament).where(
-                    Tournament.category_id == category)
+                query = select(Tournament).join(
+                    Category, Tournament.category_id == Category.sofascore_id
+                ).where(
+                    Category.sofascore_id == category
+                )
             else:
-                query = select(Category).where(
-                    Tournament.category.name == category)
+                query = select(Category).join(
+                    Category, Tournament.category_id == Category.sofascore_id
+                ).where(
+                    Category.name == category
+                )
             tournaments = await db.exec(query)
 
             return tournaments
@@ -127,6 +133,23 @@ class TournamentService:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="An error occured while fetching tournament by category."
+            )
+
+    async def get_tournaments_by_name(
+            self, db: AsyncSession,
+            tournament_name: str) -> List[Tournament] | Tournament:
+        try:
+            query = select(Tournament).where(
+                col(Tournament.name).icontains(tournament_name))
+
+            tournaments = await db.exec(query)
+
+            return tournaments
+        except CRUDRepositoryException as exc:
+            logger.error(f"Tournament Name: {str(exc)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="An error occured while fetching tournament by name."
             )
 
     async def get_all_tournaments(self, db: AsyncSession) -> List[Tournament]:
