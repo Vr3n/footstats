@@ -118,15 +118,15 @@ class TeamBase(SQLModel):
     sofascore_id: int | None = Field(default=None, primary_key=True)
     name: str
     name_code: str
-    country: Optional[str] = None
-    ranking: Optional[int] = None
+    country: str | None = None
+    ranking: str | None = None
     slug: str
 
 
 class Team(Base, TeamBase, table=True):
     __tablename__ = "team"
 
-    home_events: List["TournamentEvent"] = Relationship(
+    home_events: List["TournamentEvent"] | None = Relationship(
         back_populates="home_team",
         sa_relationship_kwargs={
             'primaryjoin': 'TournamentEvent.home_team_id == Team.sofascore_id',
@@ -134,7 +134,7 @@ class Team(Base, TeamBase, table=True):
         }
     )
 
-    away_events: List["TournamentEvent"] = Relationship(
+    away_events: List["TournamentEvent"] | None = Relationship(
         back_populates="away_team",
         sa_relationship_kwargs={
             'primaryjoin': 'TournamentEvent.away_team_id == Team.sofascore_id',
@@ -144,10 +144,10 @@ class Team(Base, TeamBase, table=True):
 
 class TournamentEventBase(SQLModel):
     sofascore_id: int | None = Field(default=None, primary_key=True)
-    slug: Optional[str]
-    detail_id: Optional[int]
+    slug: str | None = Field(default=None)
+    detail_id: int | None = Field(default=None)
 
-    stage_id: Optional[int] = Field(
+    stage_id: int | None = Field(
         default=None, foreign_key="tournament_group.sofascore_id")
 
     tournament_id: int = Field(foreign_key="tournament.sofascore_id")
@@ -156,21 +156,30 @@ class TournamentEventBase(SQLModel):
 
     away_team_id: int = Field(foreign_key="team.sofascore_id")
 
-    home_score_period_1: int = 0
-    home_score_period_2: int = 0
-    home_score_normaltime: int = 0
-    home_score_extratime: int = 0
-    home_score_penalties: int = 0
+    status_code: int | None = Field(default=None)
+    status_description: str | None = Field(default=None)
+    status_type: str | None = Field(default=None)
 
-    away_score_period_1: int = 0
-    away_score_period_2: int = 0
-    away_score_normaltime: int = 0
-    away_score_extratime: int = 0
-    away_score_penalties: int = 0
+    home_score_current: int = Field(default=0)
+    home_score_period_1: int = Field(default=0)
+    home_score_period_2: int = Field(default=0)
+    home_score_normaltime: int = Field(default=0)
+    home_score_extratime: int = Field(default=0)
+    home_score_penalties: int = Field(default=0)
 
-    has_xg: bool = False
-    has_eventplayer_statistics: bool = False
-    has_eventplayer_heatmap: bool = False
+    away_score_current: int = Field(default=0)
+    away_score_period_1: int = Field(default=0)
+    away_score_period_2: int = Field(default=0)
+    away_score_normaltime: int = Field(default=0)
+    away_score_extratime: int = Field(default=0)
+    away_score_penalties: int = Field(default=0)
+
+    has_xg: bool = Field(default=False)
+    has_eventplayer_statistics: bool = Field(default=False)
+    has_eventplayer_heatmap: bool = Field(default=False)
+
+    start_timestamp: datetime | None = Field(default=None)
+    end_timestamp: datetime | None = Field(default=None)
 
 
 class TournamentEvent(Base, TournamentEventBase, table=True):
@@ -180,7 +189,7 @@ class TournamentEvent(Base, TournamentEventBase, table=True):
 
     tournament: Tournament = Relationship(back_populates="events")
 
-    home_team: Team = Relationship(
+    home_team: Team | None = Relationship(
         back_populates='home_events',
         sa_relationship_kwargs={
             'primaryjoin': 'TournamentEvent.home_team_id == Team.sofascore_id',
@@ -188,7 +197,7 @@ class TournamentEvent(Base, TournamentEventBase, table=True):
         }
     )
 
-    away_team: Team = Relationship(
+    away_team: Team | None = Relationship(
         back_populates='away_events',
         sa_relationship_kwargs={
             'primaryjoin': 'TournamentEvent.away_team_id == Team.sofascore_id',
