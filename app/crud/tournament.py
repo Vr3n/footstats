@@ -172,7 +172,41 @@ class TournamentEventService:
     def __init__(self, event_repo: CRUDRepository[TournamentEvent]):
         self.event_repo = event_repo
 
-    async def create_tournament_event(self, db: AsyncSession, event_data: TournamentEventBase) -> TournamentEvent:
+    async def get_or_create_event(
+        self,
+        db: AsyncSession,
+            event_data: TournamentEventBase) -> TournamentEvent:
+        """
+        Tournament Event Get or create
+        """
+        try:
+            event = await self.event_repo.get(
+                db=db, id=event_data.sofascore_id)
+
+            if not event:
+                event = await self.create_tournament_event(
+                    db=db,
+                    event_data=event_data)
+
+            return event
+        except CRUDRepositoryException as exc:
+            logger.error(
+                f"Repository error in TournamentEventService: {str(exc)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="An error occurred while creating the tournament event."
+            )
+        except Exception as exc:
+            logger.error(
+                f"Unexpected error in TournamentEventService: {str(exc)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unexpected error occurred.")
+
+    async def create_tournament_event(
+            self,
+            db: AsyncSession,
+            event_data: TournamentEventBase) -> TournamentEvent:
         try:
             # Create a new tournament event
             event = TournamentEvent(
@@ -194,8 +228,11 @@ class TournamentEventService:
                 away_score_extratime=event_data.away_score_extratime,
                 away_score_penalties=event_data.away_score_penalties,
                 has_xg=event_data.has_xg,
-                has_eventplayer_statistics=event_data.has_eventplayer_statistics,
-                has_eventplayer_heatmap=event_data.has_eventplayer_heatmap
+                status_code=event_data.status_code,
+                status_type=event_data.status_type,
+                status_description=event_data.status_description,
+                has_eventplayer_statistics=event_data.has_eventplayer_statistics or False,
+                has_eventplayer_heatmap=event_data.has_eventplayer_heatmap or False,
             )
             event = await self.event_repo.create(db, event)
             return event
@@ -346,6 +383,37 @@ class TournamentSeasonService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Unexpected error occurred.")
 
+    async def get_tournament_seasons_by_tournament(
+            self,
+            db: AsyncSession,
+            tournament_id: int) -> List[TournamentSeason]:
+        try:
+            query = select(TournamentSeason).where(
+                TournamentSeason.tournament_id == tournament_id
+            )
+            result = await db.exec(query)
+            seasons = result.all()
+
+            if not seasons:
+                logger.error(
+                    f"Seasons By tournament: No Seasons Found for tournament {tournament_id}.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                    detail="Tournament has no seasons.")
+
+            return seasons
+        except CRUDRepositoryException as exc:
+            logger.error(
+                f"Repository error in TournamentSeasonService: {str(exc)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error occurred while fetching the tournament season.")
+        except Exception as exc:
+            logger.error(
+                f"Unexpected error in TournamentSeasonService: {str(exc)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unexpected error occurred.")
+
     async def get_tournament_season_by_id(self, db: AsyncSession, season_id: int) -> TournamentSeason:
         try:
             season = await self.tournament_season_repo.get(db, season_id)
@@ -473,6 +541,39 @@ class TeamService:
 
     # Basic CRUD functions
 
+    async def get_or_create_team(self,
+                                 db: AsyncSession,
+                                 team_data: TeamBase) -> Team:
+        try:
+            team = await self.team_repo.get(db, team_data.sofascore_id)
+
+            if not team:
+                obj = Team(
+                    sofascore_id=team_data.sofascore_id,
+                    name=team_data.name,
+                    name_code=team_data.name_code or None,
+                    country=team_data.country or None,
+                    ranking=team_data.ranking or None,
+                    slug=team_data.slug or None,
+                )
+                team = await self.team_repo.create(db, obj)
+
+            return team
+        except CRUDRepositoryException as exc:
+            logger.error(f"Repository error in \
+                           Get Create TeamSerive: {str(exc)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="An error occurred while processing the team."
+            )
+        except Exception as exc:
+            logger.error(f"Unexpected error in GEt Create TeamService: \
+            {str(exc)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unexpected error occurred."
+            )
+
     async def create_team(self, db: AsyncSession, team_data: TeamBase) -> Team:
         try:
             new_team = await self.team_repo.create(db, team_data)
@@ -550,8 +651,10 @@ class TeamService:
     async def get_team_by_tournament(self, db: AsyncSession, tournament_id: int, season_id: int) -> List[Team]:
         try:
             query = select(Team).join(TournamentEvent).where(
-                TournamentEvent.tournament_id == tournament_id,
-                TournamentEvent.season_id == season_id
+                or_(
+                    TournamentEvent.tournament_id == tournament_id,
+                    TournamentEvent.season_id == season_id
+                )
             )
             result = await db.exec(query)
             teams = result.scalars().all()
@@ -707,4 +810,7 @@ tournament_season_service = TournamentSeasonService(
 )
 tournament_event_service = TournamentEventService(
     event_repo=CRUDRepository(model=TournamentEvent)
+)
+team_service = TeamService(
+    team_repo=CRUDRepository(model=Team)
 )
